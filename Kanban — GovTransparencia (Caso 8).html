@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Tablero Kanban — GovTransparencia</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+:root {
+  --bg:        #0d1117;
+  --surface:   #161b22;
+  --panel:     #21262d;
+  --border:    rgba(255,255,255,.08);
+
+  /* columnas equipo */
+  --c-backlog:  #334155;
+  --c-dev:      #1d4ed8;
+  --c-deployed: #0f766e;
+
+  /* cuello de botella */
+  --c-waiting:  #92400e;
+  --c-waiting-bg: #1c0f00;
+
+  /* publicado */
+  --c-live:     #15803d;
+
+  /* notas */
+  --note-y:   #fbbf24;
+  --note-p:   #a78bfa;
+  --note-b:   #60a5fa;
+  --note-r:   #f87171;
+  --note-g:   #34d399;
+
+  --accent:   #f59e0b;
+  --text:     #e6edf3;
+  --muted:    #7d8590;
+  --radius:   8px;
+  --shadow:   0 4px 12px rgba(0,0,0,.5);
+}
+
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:20px 24px 40px;}
+
+/* ── HEADER ── */
+.header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:6px;}
+.header-left .tag{font-size:.65rem;text-transform:uppercase;letter-spacing:.15em;color:var(--accent);font-weight:700;margin-bottom:4px;}
+.header-left h1{font-size:1.75rem;font-weight:900;letter-spacing:-.5px;line-height:1.1;}
+.header-left h1 span{color:var(--accent);}
+.header-left p{font-size:.78rem;color:var(--muted);margin-top:4px;max-width:480px;line-height:1.5;}
+.header-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.fecha-wrap{display:flex;align-items:center;gap:6px;}
+.fecha-label{font-size:.65rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);}
+.fecha-input{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:5px 10px;font-size:.8rem;font-family:inherit;}
+.btn{background:var(--accent);color:#111;border:none;border-radius:var(--radius);padding:7px 14px;font-weight:700;font-size:.78rem;cursor:pointer;font-family:inherit;transition:opacity .15s;}
+.btn:hover{opacity:.85;}
+.btn.ghost{background:transparent;border:1px solid var(--border);color:var(--muted);}
+.btn.ghost:hover{border-color:var(--accent);color:var(--accent);}
+
+/* ── LEGEND BAR ── */
+.legend-bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:16px;font-size:.72rem;}
+.legend-bar .lbl{font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-size:.65rem;}
+.legend-item{display:flex;align-items:center;gap:5px;color:var(--muted);}
+.legend-dot{width:11px;height:11px;border-radius:3px;flex-shrink:0;}
+
+/* ── METRICS ── */
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:20px;}
+.metric-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;}
+.metric-card .metric-label{font-size:.65rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:600;}
+.metric-card .metric-value{font-size:1.6rem;font-weight:800;line-height:1.1;margin-top:4px;}
+.metric-card .metric-sub{font-size:.7rem;color:var(--muted);margin-top:3px;}
+.metric-card.ok .metric-value{color:#34d399;}
+.metric-card.bad .metric-value{color:#f87171;}
+.metric-card.neutral .metric-value{color:var(--accent);}
+
+/* ── BOARD ── */
+.board-wrap{overflow-x:auto;padding-bottom:12px;}
+.board{display:flex;gap:14px;align-items:flex-start;min-width:max-content;}
+
+/* ── COLUMN ── */
+.column{width:210px;flex-shrink:0;border-radius:10px;overflow:hidden;background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);display:flex;flex-direction:column;}
+.column.bottleneck{border-color:rgba(251,146,60,.4);background:#160e00;}
+.column.drag-over{outline:2px solid var(--accent);}
+
+.col-header{padding:11px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.col-header .col-title{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap;}
+.col-header .col-meta{display:flex;align-items:center;gap:6px;}
+.col-header .count{background:rgba(0,0,0,.25);border-radius:20px;padding:1px 8px;font-size:.65rem;font-weight:600;}
+.col-header .wip-limit{font-size:.6rem;color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.2);border-radius:20px;padding:1px 7px;}
+
+/* column colors */
+.col-backlog  .col-header{background:var(--c-backlog);}
+.col-dev      .col-header{background:var(--c-dev);}
+.col-deployed .col-header{background:var(--c-deployed);}
+.col-waiting  .col-header{background:var(--c-waiting);color:#fcd34d;}
+.col-live     .col-header{background:var(--c-live);}
+
+/* bottleneck banner */
+.bottleneck-banner{background:#7c2d12;color:#fcd34d;font-size:.65rem;font-weight:700;text-align:center;padding:5px 10px;letter-spacing:.06em;display:flex;align-items:center;justify-content:center;gap:6px;}
+
+/* ── CARDS AREA ── */
+.cards-area{padding:10px;display:flex;flex-direction:column;gap:9px;min-height:160px;flex:1;}
+
+.card{border-radius:7px;padding:11px 13px;font-size:.78rem;line-height:1.5;cursor:grab;position:relative;box-shadow:var(--shadow);transition:transform .15s,box-shadow .15s;}
+.card:active{cursor:grabbing;}
+.card.dragging{opacity:.4;transform:rotate(2deg);}
+.card:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(0,0,0,.55);}
+
+.card.y{background:var(--note-y);color:#111;}
+.card.p{background:var(--note-p);color:#fff;}
+.card.b{background:var(--note-b);color:#fff;}
+.card.r{background:var(--note-r);color:#fff;}
+.card.g{background:var(--note-g);color:#111;}
+
+.card textarea{background:transparent;border:none;outline:none;resize:none;font-family:inherit;font-size:.78rem;line-height:1.5;color:inherit;width:100%;min-height:44px;}
+.card-meta{display:flex;justify-content:space-between;align-items:center;margin-top:7px;gap:6px;}
+.card-days{font-size:.65rem;font-weight:600;background:rgba(0,0,0,.18);border-radius:4px;padding:1px 6px;white-space:nowrap;}
+.card-del{background:rgba(0,0,0,.15);border:none;border-radius:4px;width:18px;height:18px;font-size:.7rem;cursor:pointer;color:inherit;display:flex;align-items:center;justify-content:center;font-family:inherit;line-height:1;}
+.card-del:hover{background:rgba(0,0,0,.3);}
+
+/* ── ADD CARD ── */
+.add-card-wrap{padding:0 10px 10px;}
+.btn-add-card{display:flex;align-items:center;gap:5px;background:transparent;border:1.5px dashed rgba(255,255,255,.12);border-radius:7px;color:var(--muted);padding:7px 11px;font-size:.75rem;cursor:pointer;width:100%;font-family:inherit;transition:border-color .15s,color .15s;}
+.btn-add-card:hover{border-color:var(--accent);color:var(--accent);}
+.color-picker{display:none;padding:6px 0 2px;gap:6px;align-items:center;flex-wrap:wrap;}
+.color-picker.open{display:flex;}
+.cdot{width:18px;height:18px;border-radius:50%;cursor:pointer;border:2px solid transparent;flex-shrink:0;}
+.cdot:hover,.cdot.sel{border-color:#fff;}
+.cdot.y{background:var(--note-y);}
+.cdot.p{background:var(--note-p);}
+.cdot.b{background:var(--note-b);}
+.cdot.r{background:var(--note-r);}
+.cdot.g{background:var(--note-g);}
+.btn-confirm{background:rgba(255,255,255,.12);border:none;border-radius:4px;color:var(--text);font-size:.7rem;padding:2px 8px;cursor:pointer;font-family:inherit;margin-left:auto;}
+.btn-confirm:hover{background:rgba(255,255,255,.22);}
+
+/* ── SEPARATOR ── */
+.sep-arrow{display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:1.1rem;padding-top:60px;flex-shrink:0;}
+
+/* ── BOTTOM PANELS ── */
+.bottom{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:20px;}
+@media(max-width:700px){.bottom{grid-template-columns:1fr;}}
+
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+.panel-hdr{background:var(--panel);padding:10px 16px;font-size:.65rem;text-transform:uppercase;letter-spacing:.12em;color:var(--accent);font-weight:700;border-bottom:1px solid var(--border);}
+
+/* actions table */
+.act-table{width:100%;border-collapse:collapse;font-size:.8rem;}
+.act-table th{text-align:left;padding:9px 16px;background:var(--panel);color:#fff;font-weight:600;font-size:.7rem;}
+.act-table td{padding:8px 16px;border-bottom:1px solid var(--border);}
+.act-table td input{background:transparent;border:none;outline:none;color:var(--text);font-family:inherit;font-size:.8rem;width:100%;}
+.act-table td input::placeholder{color:var(--muted);}
+.act-table tr:last-child td{border-bottom:none;}
+.btn-add-row{background:transparent;border:none;color:var(--accent);font-size:.75rem;cursor:pointer;padding:9px 16px;font-family:inherit;text-align:left;display:block;width:100%;}
+.btn-add-row:hover{background:rgba(255,255,255,.04);}
+
+/* diff table */
+.diff-table{width:100%;border-collapse:collapse;font-size:.78rem;}
+.diff-table th{padding:9px 16px;background:var(--panel);color:#fff;font-weight:600;font-size:.7rem;text-align:left;}
+.diff-table td{padding:9px 16px;border-bottom:1px solid var(--border);vertical-align:top;line-height:1.5;}
+.diff-table tr:last-child td{border-bottom:none;}
+.diff-table td:first-child{color:var(--accent);font-weight:700;}
+.tag-ok{background:#14532d;color:#4ade80;border-radius:4px;padding:1px 7px;font-size:.65rem;font-weight:700;}
+.tag-bad{background:#450a0a;color:#f87171;border-radius:4px;padding:1px 7px;font-size:.65rem;font-weight:700;}
+
+/* ghost */
+.ghost-card{position:fixed;pointer-events:none;z-index:999;opacity:.75;transform:rotate(3deg);border-radius:7px;padding:11px 13px;font-size:.78rem;max-width:190px;box-shadow:0 10px 30px rgba(0,0,0,.6);}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-left">
+    <div class="tag">Caso 8 · Kanban</div>
+    <h1>Gov<span>Transparencia</span></h1>
+    <p>Flujo rediseñado para diferenciar Cycle Time (equipo) vs Lead Time (infraestructura estatal) y hacer visible el cuello de botella.</p>
+  </div>
+  <div class="header-right">
+    <div class="fecha-wrap">
+      <span class="fecha-label">Fecha</span>
+      <input type="date" class="fecha-input" id="fecha-input">
+    </div>
+    <button class="btn" onclick="exportCSV()">↓ Exportar CSV</button>
+  </div>
+</div>
+
+<!-- METRICS -->
+<div class="metrics">
+  <div class="metric-card ok">
+    <div class="metric-label">Cycle Time (equipo)</div>
+    <div class="metric-value">~3 días</div>
+    <div class="metric-sub">Desde desarrollo hasta despliegue</div>
+  </div>
+  <div class="metric-card bad">
+    <div class="metric-label">Lead Time (usuario final)</div>
+    <div class="metric-value">~meses</div>
+    <div class="metric-sub">Desde solicitud hasta publicación</div>
+  </div>
+  <div class="metric-card neutral">
+    <div class="metric-label">Brecha identificada</div>
+    <div class="metric-value">≫ 90 %</div>
+    <div class="metric-sub">Del Lead Time es tiempo de espera estatal</div>
+  </div>
+  <div class="metric-card neutral">
+    <div class="metric-label">Tarjetas en cuello</div>
+    <div class="metric-value" id="bottleneck-count">0</div>
+    <div class="metric-sub">Actualmente bloqueadas en servidor Estado</div>
+  </div>
+</div>
+
+<!-- LEGEND -->
+<div class="legend-bar">
+  <span class="lbl">Notas:</span>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--note-y)"></div>Sprint / Tarea</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--note-p)"></div>Bloqueado</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--note-b)"></div>En revisión</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--note-r)"></div>Urgente / Alerta</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--note-g)"></div>Listo / Aprobado</div>
+  <span class="lbl" style="margin-left:8px">Arrastrar y soltar para mover tarjetas entre columnas</span>
+</div>
+
+<!-- BOARD -->
+<div class="board-wrap">
+<div class="board" id="board">
+
+  <!-- BACKLOG -->
+  <div class="column col-backlog" data-col="backlog" ondragover="dragOver(event)" ondrop="drop(event)" ondragleave="dragLeave(event)">
+    <div class="col-header">
+      <span class="col-title">Backlog</span>
+      <div class="col-meta">
+        <span class="count" id="cnt-backlog">2</span>
+        <span class="wip-limit">WIP ∞</span>
+      </div>
+    </div>
+    <div class="cards-area" id="area-backlog">
+      <div class="card y" draggable="true">
+        <textarea rows="2">Sprint NLP — Análisis sentimientos v2.1</textarea>
+        <div class="card-meta"><span class="card-days">0 días</span><button class="card-del" onclick="delCard(this)">✕</button></div>
+      </div>
+      <div class="card y" draggable="true">
+        <textarea rows="2">Mejora modelo clasificación de contratos</textarea>
+        <div class="card-meta"><span class="card-days">0 días</span><button class="card-del" onclick="delCard(this)">✕</button></div>
+      </div>
+    </div>
+    <div class="add-card-wrap">
+      <button class="btn-add-card" onclick="togglePicker('backlog')">＋ Añadir tarjeta</button>
+      <div class="color-picker" id="picker-backlog">
+        <div class="cdot y sel" onclick="selColor('backlog','y',this)"></div>
+        <div class="cdot p" onclick="selColor('backlog','p',this)"></div>
+        <div class="cdot b" onclick="selColor('backlog','b',this)"></div>
+        <div class="cdot r" onclick="selColor('backlog','r',this)"></div>
+        <div class="cdot g" onclick="selColor('backlog','g',this)"></div>
+        <button class="btn-confirm" onclick="addCard('backlog')">Agregar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sep-arrow">→</div>
+
+  <!-- EN DESARROLLO (EQUIPO) -->
+  <div class="column col-dev" data-col="dev" ondragover="dragOver(event)" ondrop="drop(event)" ondragleave="dragLeave(event)">
+    <div class="col-header">
+      <span class="col-title">En Desarrollo</span>
+      <div class="col-meta">
+        <span class="count" id="cnt-dev">1</span>
+        <span class="wip-limit">WIP ≤3</span>
+      </div>
+    </div>
+    <div class="cards-area" id="area-dev">
+      <div class="card b" draggable="true">
+        <textarea rows="2">Sprint NLP — Extracción de entidades v3.0</textarea>
+        <div class="card-meta"><span class="card-days">2 días</span><button class="card-del" onclick="delCard(this)">✕</button></div>
+      </div>
+    </div>
+    <div class="add-card-wrap">
+      <button class="btn-add-card" onclick="togglePicker('dev')">＋ Añadir tarjeta</button>
+      <div class="color-picker" id="picker-dev">
+        <div class="cdot y sel" onclick="selColor('dev','y',this)"></div>
+        <div class="cdot p" onclick="selColor('dev','p',this)"></div>
+        <div class="cdot b" onclick="selColor('dev','b',this)"></div>
+        <div class="cdot r" onclick="selColor('dev','r',this)"></div>
+        <div class="cdot g" onclick="selColor('dev','g',this)"></div>
+        <button class="btn-confirm" onclick="addCard('dev')">Agregar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sep-arrow">→</div>
+
+  <!-- DESPLEGADO (EQUIPO) -->
+  <div class="column col-deployed" data-col="deployed" ondragover="dragOver(event)" ondrop="drop(event)" ondragleave="dragLeave(event)">
+    <div class="col-header">
+      <span class="col-title">Desplegado ✓</span>
+      <div class="col-meta">
+        <span class="count" id="cnt-deployed">1</span>
+        <span class="wip-limit">Cycle ≈3d</span>
+      </div>
+    </div>
+    <div class="cards-area" id="area-deployed">
+      <div class="card g" draggable="true">
+        <textarea rows="2">Sprint NLP — Resumen automático v2.0</textarea>
+        <div class="card-meta"><span class="card-days">3 días</span><button class="card-del" onclick="delCard(this)">✕</button></div>
+      </div>
+    </div>
+    <div class="add-card-wrap">
+      <button class="btn-add-card" onclick="togglePicker('deployed')">＋ Añadir tarjeta</button>
+      <div class="color-picker" id="picker-deployed">
+        <div class="cdot y sel" onclick="selColor('deployed','y',this)"></div>
+        <div class="cdot p" onclick="selColor('deployed','p',this)"></div>
+        <div class="cdot b" onclick="selColor('deployed','b',this)"></div>
+        <div class="cdot r" onclick="selColor('deployed','r',this)"></div>
+        <div class="cdot g" onclick="selColor('deployed','g',this)"></div>
+        <button class="btn-confirm" onclick="addCard('deployed')">Agregar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sep-arrow" style="color:#fb923c;font-size:1.4rem">⚠</div>
+
+  <!-- CUELLO DE BOTELLA -->
+  <div class="column col-waiting bottleneck" data-col="waiting" ondragover="dragOver(event)" ondrop="drop(event)" ondragleave="dragLeave(event)">
+    <div class="bottleneck-banner">🚧 CUELLO DE BOTELLA — Servidor Estado</div>
+    <div class="col-header">
+      <span class="col-title">En Cola Estatal</span>
+      <div class="col-meta">
+        <span class="count" id="cnt-waiting">2</span>
+        <span class="wip-limit">Lead ≫</span>
+      </div>
+    </div>
+    <div class="cards-area" id="area-waiting">
+      <div class="card r" draggable="true">
+        <textarea rows="2">Sprint NLP — Búsqueda semántica v1.5 (45 días esperando)</textarea>
+        <div class="card-meta"><span class="card-days">45 días</span><button class="card-del" onclick="delCard(this)">✕</button></div>
+      </div>
+      <div class="card p" draggable="true">
+        <textarea rows="2">Sprint NLP — Dashboard de licitaciones v1.0 (30 días esperando)</textarea>
+        <div class="card-meta"><span class="card-days">30 días</span><button class="card-del" onclick="delCard(this)">✕</button></div>
+      </div>
+    </div>
+    <div class="add-card-wrap">
+      <button class="btn-add-card" onclick="togglePicker('waiting')">＋ Añadir tarjeta</button>
+      <div class="color-picker" id="picker-waiting">
+        <div class="cdot y sel" onclick="selColor('waiting','y',this)"></div>
+        <div class="cdot p" onclick="selColor('waiting','p',this)"></div>
+        <div class="cdot b" onclick="selColor('waiting','b',this)"></div>
+        <div class="cdot r" onclick="selColor('waiting','r',this)"></div>
+        <div class="cdot g" onclick="selColor('waiting','g',this)"></div>
+        <button class="btn-confirm" onclick="addCard('waiting')">Agregar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sep-arrow">→</div>
+
+  <!-- PUBLICADO -->
+  <div class="column col-live" data-col="live" ondragover="dragOver(event)" ondrop="drop(event)" ondragleave="dragLeave(event)">
+    <div class="col-header">
+      <span class="col-title">Publicado 🌐</span>
+      <div class="col-meta">
+        <span class="count" id="cnt-live">1</span>
+      </div>
+    </div>
+    <div class="cards-area" id="area-live">
+      <div class="card g" draggable="true">
+        <textarea rows="2">Sprint NLP — Detección de irregularidades v1.0</textarea>
+        <div class="card-meta"><span class="card-days">Lead: 3 meses</span><button class="card-del" onclick="delCard(this)">✕</button></div>
+      </div>
+    </div>
+    <div class="add-card-wrap">
+      <button class="btn-add-card" onclick="togglePicker('live')">＋ Añadir tarjeta</button>
+      <div class="color-picker" id="picker-live">
+        <div class="cdot y sel" onclick="selColor('live','y',this)"></div>
+        <div class="cdot p" onclick="selColor('live','p',this)"></div>
+        <div class="cdot b" onclick="selColor('live','b',this)"></div>
+        <div class="cdot r" onclick="selColor('live','r',this)"></div>
+        <div class="cdot g" onclick="selColor('live','g',this)"></div>
+        <button class="btn-confirm" onclick="addCard('live')">Agregar</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /board -->
+</div><!-- /board-wrap -->
+
+<!-- BOTTOM PANELS -->
+<div class="bottom">
+
+  <!-- ACTIONS -->
+  <div class="panel">
+    <div class="panel-hdr">ACCIONES A SEGUIR — CIERRE DE SESIÓN</div>
+    <table class="act-table">
+      <thead><tr><th style="width:62%">Acción</th><th>Responsable</th></tr></thead>
+      <tbody id="act-body">
+        <tr>
+          <td><input type="text" value="Medir días promedio en 'En Cola Estatal'" /></td>
+          <td><input type="text" placeholder="Responsable" /></td>
+        </tr>
+        <tr>
+          <td><input type="text" value="Escalar bloqueo al área técnica del servidor del Estado" /></td>
+          <td><input type="text" placeholder="Responsable" /></td>
+        </tr>
+        <tr>
+          <td><input type="text" value="Proponer SLA formal con servidor estatal (máx. X días)" /></td>
+          <td><input type="text" placeholder="Responsable" /></td>
+        </tr>
+        <tr>
+          <td><input type="text" value="Evaluar espejo/CDN propio como alternativa de publicación" /></td>
+          <td><input type="text" placeholder="Responsable" /></td>
+        </tr>
+        <tr>
+          <td><input type="text" placeholder="Añade otra acción…" /></td>
+          <td><input type="text" placeholder="Responsable" /></td>
+        </tr>
+      </tbody>
+    </table>
+    <button class="btn-add-row" onclick="addRow()">＋ Añadir acción</button>
+  </div>
+
+  <!-- DIFF TABLE -->
+  <div class="panel">
+    <div class="panel-hdr">DIFERENCIA: CYCLE TIME vs LEAD TIME</div>
+    <table class="diff-table">
+      <thead>
+        <tr>
+          <th>Concepto</th>
+          <th>Qué mide</th>
+          <th>En GovTransparencia</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Cycle Time</td>
+          <td>Tiempo del equipo: desde que comienza el desarrollo hasta que el equipo lo despliega.</td>
+          <td><span class="tag-ok">~3 días</span> — el equipo es eficiente</td>
+        </tr>
+        <tr>
+          <td>Lead Time</td>
+          <td>Tiempo total: desde que se solicita el cambio hasta que el ciudadano lo ve en producción.</td>
+          <td><span class="tag-bad">Meses</span> — bloqueado por el Estado</td>
+        </tr>
+        <tr>
+          <td>Brecha</td>
+          <td>Diferencia entre ambos: representa tiempo de espera, burocracia o bloqueos externos.</td>
+          <td><span class="tag-bad">≫ 90 % del Lead Time</span> es espera estatal, no trabajo del equipo</td>
+        </tr>
+        <tr>
+          <td>Solución Kanban</td>
+          <td>Hacer visible el cuello de botella con la columna "En Cola Estatal".</td>
+          <td>Cada tarjeta acumula días visibles → evidencia para negociar con el Estado</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- GHOST -->
+<div class="ghost-card" id="ghost" style="display:none"></div>
+
+<script>
+  // Date
+  document.getElementById('fecha-input').value = new Date().toISOString().split('T')[0];
+
+  // Color state per column
+  const colors = {};
+  const cols = ['backlog','dev','deployed','waiting','live'];
+  cols.forEach(c => colors[c] = 'y');
+
+  function selColor(col, color, el) {
+    colors[col] = color;
+    document.querySelectorAll(`#picker-${col} .cdot`).forEach(d => d.classList.remove('sel'));
+    el.classList.add('sel');
+  }
+
+  function togglePicker(col) {
+    const all = document.querySelectorAll('.color-picker');
+    all.forEach(p => { if (p.id !== 'picker-' + col) p.classList.remove('open'); });
+    document.getElementById('picker-' + col)?.classList.toggle('open');
+  }
+
+  function addCard(col) {
+    const area = document.getElementById('area-' + col);
+    if (!area) return;
+    const c = document.createElement('div');
+    c.className = 'card ' + (colors[col] || 'y');
+    c.draggable = true;
+    c.innerHTML = `<textarea rows="2" placeholder="Describe la tarea o bloqueo…"></textarea>
+      <div class="card-meta"><span class="card-days">0 días</span><button class="card-del" onclick="delCard(this)">✕</button></div>`;
+    area.appendChild(c);
+    c.querySelector('textarea').focus();
+    document.getElementById('picker-' + col)?.classList.remove('open');
+    updateCounts();
+  }
+
+  function delCard(btn) {
+    btn.closest('.card').remove();
+    updateCounts();
+  }
+
+  function updateCounts() {
+    cols.forEach(id => {
+      const area = document.getElementById('area-' + id);
+      const cnt  = document.getElementById('cnt-' + id);
+      if (area && cnt) cnt.textContent = area.querySelectorAll('.card').length;
+    });
+    // bottleneck metric
+    const w = document.getElementById('area-waiting');
+    const bc = document.getElementById('bottleneck-count');
+    if (w && bc) bc.textContent = w.querySelectorAll('.card').length;
+  }
+
+  // Drag & drop
+  let dragging = null;
+  const ghost  = document.getElementById('ghost');
+
+  document.addEventListener('dragstart', e => {
+    if (!e.target.classList.contains('card')) return;
+    dragging = e.target;
+    e.target.classList.add('dragging');
+    const colorClass = [...e.target.classList].find(c => ['y','p','b','r','g'].includes(c)) || 'y';
+    const colorMap = {y:'var(--note-y)',p:'var(--note-p)',b:'var(--note-b)',r:'var(--note-r)',g:'var(--note-g)'};
+    ghost.style.background = colorMap[colorClass];
+    ghost.style.color = ['y','g'].includes(colorClass) ? '#111' : '#fff';
+    ghost.textContent = e.target.querySelector('textarea')?.value || '';
+    ghost.style.display = 'block';
+    e.dataTransfer.effectAllowed = 'move';
+  });
+  document.addEventListener('drag', e => {
+    ghost.style.left = (e.clientX + 14) + 'px';
+    ghost.style.top  = (e.clientY + 10) + 'px';
+  });
+  document.addEventListener('dragend', () => {
+    if (dragging) dragging.classList.remove('dragging');
+    ghost.style.display = 'none';
+    document.querySelectorAll('.column').forEach(c => c.classList.remove('drag-over'));
+    dragging = null;
+    updateCounts();
+  });
+
+  function dragOver(e) {
+    e.preventDefault();
+    e.currentTarget.classList.add('drag-over');
+  }
+  function dragLeave(e) {
+    if (!e.currentTarget.contains(e.relatedTarget)) e.currentTarget.classList.remove('drag-over');
+  }
+  function drop(e) {
+    e.preventDefault();
+    const col = e.currentTarget;
+    col.classList.remove('drag-over');
+    if (!dragging) return;
+    col.querySelector('.cards-area').appendChild(dragging);
+    updateCounts();
+  }
+
+  // Actions row
+  function addRow() {
+    const tbody = document.getElementById('act-body');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td><input type="text" placeholder="Añade otra acción…" /></td>
+                    <td><input type="text" placeholder="Responsable" /></td>`;
+    tbody.appendChild(tr);
+  }
+
+  // Export CSV
+  function exportCSV() {
+    let csv = 'Columna,Tarjeta,Días\n';
+    const labels = {backlog:'Backlog',dev:'En Desarrollo',deployed:'Desplegado',waiting:'En Cola Estatal',live:'Publicado'};
+    cols.forEach(id => {
+      const area = document.getElementById('area-' + id);
+      area?.querySelectorAll('.card').forEach(card => {
+        const text = card.querySelector('textarea')?.value.replace(/"/g,'""') || '';
+        const days = card.querySelector('.card-days')?.textContent || '';
+        csv += `"${labels[id]}","${text}","${days}"\n`;
+      });
+    });
+    const blob = new Blob([csv], {type:'text/csv'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'govtransparencia_kanban.csv';
+    a.click();
+  }
+
+  updateCounts();
+</script>
+</body>
+</html>
